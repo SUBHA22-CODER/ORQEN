@@ -1,18 +1,29 @@
 BINARY      := orqen
-MODULE      := github.com/soham1105-tech/orqen
+MODULE      := github.com/SUBHA22-CODER/ORQEN
 VERSION     ?= v0.4.0
 BUILD_TIME  ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS     := -s -w -X $(MODULE)/cmd.Version=$(VERSION) -X $(MODULE)/cmd.BuildTime=$(BUILD_TIME)
 
-.PHONY: all build test race vet fmt fmt-check check e2e heal-proof tidy install clean run release help
+.PHONY: all build test test-unit test-integration test-e2e test-live-llm race vet fmt fmt-check check e2e heal-proof tidy install clean run release help
 
 all: build
 
 build: ## Build the orqen binary
 	go build -trimpath -ldflags "$(LDFLAGS)" -o $(BINARY) .
 
-test: ## Run unit tests
+test: test-unit ## Run unit tests
+
+test-unit: ## Run all unit tests
 	go test ./...
+
+test-integration: ## Run Docker and integration tests
+	go test -v ./test/... ./cmd/... -run 'Integration|Docker|Lifecycle'
+
+test-e2e: ## Run end-to-end pipeline tests
+	go test -v ./cmd -run 'TestInitPipelineNoRunE2E|TestUpdatePreservesHostPortsE2E|TestAskOnboardNoRunE2E|E2E'
+
+test-live-llm: ## Run opt-in live LLM tests (requires live keys; never run by default)
+	ORQEN_TEST_LIVE_LLM=1 go test -v ./internal/llm -run 'TestLive'
 
 race: ## Run tests with the race detector
 	go test -race ./...

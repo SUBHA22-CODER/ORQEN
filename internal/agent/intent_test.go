@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/safefs"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safefs"
 )
 
 type fakeCompose struct {

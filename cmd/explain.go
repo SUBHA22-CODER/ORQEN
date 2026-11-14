@@ -7,10 +7,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/soham1105-tech/orqen/internal/envvar"
-	"github.com/soham1105-tech/orqen/internal/graph"
-	"github.com/soham1105-tech/orqen/internal/healer"
-	"github.com/soham1105-tech/orqen/internal/ui"
+	"github.com/SUBHA22-CODER/ORQEN/internal/envvar"
+	"github.com/SUBHA22-CODER/ORQEN/internal/graph"
+	"github.com/SUBHA22-CODER/ORQEN/internal/healer"
+	"github.com/SUBHA22-CODER/ORQEN/internal/ui"
 )
 
 var explainCmd = &cobra.Command{

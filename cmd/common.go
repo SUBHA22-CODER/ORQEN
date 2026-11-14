@@ -9,17 +9,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/soham1105-tech/orqen/internal/config"
-	"github.com/soham1105-tech/orqen/internal/docker"
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/envvar"
-	"github.com/soham1105-tech/orqen/internal/healer"
-	"github.com/soham1105-tech/orqen/internal/httpcheck"
-	"github.com/soham1105-tech/orqen/internal/infra"
-	"github.com/soham1105-tech/orqen/internal/llm"
-	"github.com/soham1105-tech/orqen/internal/safefs"
-	"github.com/soham1105-tech/orqen/internal/state"
-	"github.com/soham1105-tech/orqen/internal/ui"
+	"golang.org/x/term"
+
+	"github.com/SUBHA22-CODER/ORQEN/internal/config"
+	"github.com/SUBHA22-CODER/ORQEN/internal/docker"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/envvar"
+	"github.com/SUBHA22-CODER/ORQEN/internal/healer"
+	"github.com/SUBHA22-CODER/ORQEN/internal/httpcheck"
+	"github.com/SUBHA22-CODER/ORQEN/internal/infra"
+	"github.com/SUBHA22-CODER/ORQEN/internal/llm"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safefs"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safety"
+	"github.com/SUBHA22-CODER/ORQEN/internal/state"
+	"github.com/SUBHA22-CODER/ORQEN/internal/ui"
 )
 
 func logf(format string, args ...any) {
@@ -91,8 +94,33 @@ func healerFor(mgr *state.Manager, lock *domain.Lock, client domain.LLMClient) (
 			srcJail = j
 		}
 	}
+	compose := composeFor(mgr)
+	gate := &safety.Gate{
+		Collector: &safety.Collector{
+			Compose:  compose,
+			Prober:   probeFor(),
+			Services: lock.Services,
+			PortMap:  lock.PortMap,
+		},
+		Breaker: safety.NewBreaker(mgr.BreakerPath(), 0, 0),
+		Audit:   safety.NewAudit(mgr.SafetyAuditPath()),
+		Sandbox: &safety.Sandbox{Runner: docker.NewSandboxRunner()},
+		Logf: func(format string, args ...any) {
+			verbosef("  safety: "+format, args...)
+		},
+	}
+	// Judge mode (active while `orqen serve` runs): risky repairs pause and
+	// await a structured approval from the web control plane instead of being
+	// refused outright. CLI sessions keep --yes / prompt behavior.
+	if judgeApprovals {
+		coord := judgeCoordinator(mgr.ID)
+		coord.Emit = func(eventType string, a safety.Approval) {
+			verbosef("  approval %s: %s [%s] risk=%s confidence=%.2f", eventType, a.ApprovalID, a.ActionType, a.RiskLevel, a.ConfidenceScore)
+		}
+		gate.Coordinator = coord
+	}
 	return &healer.Healer{
-		Compose:       composeFor(mgr),
+		Compose:       compose,
 		LLM:           client,
 		WorkJail:      workJail,
 		SourceJail:    srcJail,
@@ -110,7 +138,54 @@ func healerFor(mgr *state.Manager, lock *domain.Lock, client domain.LLMClient) (
 		HTTPCheck: func(ctx context.Context, url string) domain.Result {
 			return httpcheck.Check(ctx, url, 4*time.Second)
 		},
+		Safety: gate,
 	}, nil
+}
+
+// probeFor returns the HTTP prober seam used by the safety collector.
+func probeFor() safety.Prober {
+	return proberFunc(func(ctx context.Context, url string) domain.Result {
+		return httpcheck.Check(ctx, url, 4*time.Second)
+	})
+}
+
+type proberFunc func(ctx context.Context, url string) domain.Result
+
+func (f proberFunc) Check(ctx context.Context, url string) domain.Result { return f(ctx, url) }
+
+// setApprovalMode configures how the gate asks for approval of risky repairs.
+// "auto" approves everything (--yes); "prompt" asks in plain language when a
+// terminal is attached; any other value (the default for non-interactive
+// callers such as chat and the web console) leaves the approver nil, which
+// refuses risky repairs — the safe default.
+func setApprovalMode(g *safety.Gate, mode string) {
+	switch mode {
+	case "auto":
+		g.Approver = func(context.Context, safety.ApprovalRequest) bool { return true }
+	case "prompt":
+		if term.IsTerminal(int(os.Stdin.Fd())) {
+			g.Approver = promptApprover
+		}
+	}
+}
+
+// promptApprover asks the user in plain language; no debugging knowledge is
+// required to answer.
+func promptApprover(_ context.Context, req safety.ApprovalRequest) bool {
+	fmt.Println()
+	fmt.Println(ui.WarnStyle.Render("ORQEN wants to apply a repair that is harder to undo:"))
+	if req.Summary != "" {
+		fmt.Println("  Fix: " + req.Summary)
+	}
+	fmt.Println("  Risk: " + req.Explanation)
+	if len(req.Files) > 0 {
+		fmt.Println("  Files: " + strings.Join(req.Files, ", "))
+	}
+	fmt.Print("Apply this repair? [y/N]: ")
+	reader := bufio.NewReader(os.Stdin)
+	line, _ := reader.ReadString('\n')
+	line = strings.ToLower(strings.TrimSpace(line))
+	return line == "y" || line == "yes"
 }
 
 // renderEnv rebuilds the project .env from the lock, infra bindings, service
@@ -323,6 +398,9 @@ func checkDaemon(ctx context.Context) error {
 }
 
 func missingEnvKeys(mgr *state.Manager, lock *domain.Lock) []string {
+	if lock == nil {
+		return nil
+	}
 	merged, err := renderEnv(mgr, lock)
 	if err != nil {
 		return nil
@@ -332,12 +410,93 @@ func missingEnvKeys(mgr *state.Manager, lock *domain.Lock) []string {
 		if strings.HasSuffix(ev.Key, "_") {
 			continue
 		}
-		if strings.TrimSpace(merged[ev.Key]) == "" {
-			missing = append(missing, ev.Key)
+		// Respect the Required flag: only variables required by the application
+		// can be considered missing.
+		if !ev.Required {
+			continue
 		}
+		// If already set, not missing.
+		if strings.TrimSpace(merged[ev.Key]) != "" {
+			continue
+		}
+		// GitHub PAT is optional for public repositories.
+		if ev.Key == "GITHUB_PAT" || ev.Key == "GH_TOKEN" {
+			continue
+		}
+		// Skip alternative, unused LLM provider keys when another provider
+		// is selected or configured.
+		if isAlternativeProviderKey(ev, merged, lock.Env) {
+			continue
+		}
+		missing = append(missing, ev.Key)
 	}
 	sort.Strings(missing)
 	return missing
+}
+
+func isAlternativeProviderKey(ev *domain.EnvVar, merged map[string]string, allEnv []*domain.EnvVar) bool {
+	providerKeys := map[string]string{
+		"GEMINI_API_KEY":    "gemini",
+		"XAI_API_KEY":       "grok",
+		"OPENAI_API_KEY":    "openai",
+		"ANTHROPIC_API_KEY": "anthropic",
+		"GROQ_API_KEY":      "groq",
+	}
+	provider, isProvKey := providerKeys[ev.Key]
+	if !isProvKey {
+		return false
+	}
+
+	if strings.TrimSpace(merged[ev.Key]) != "" {
+		return false
+	}
+
+	// Identify active/selected provider from repo env or ORQEN config.
+	selected := ""
+	for _, selKey := range []string{"ORQEN_LLM_PROVIDER", "LLM_PROVIDER", "AI_PROVIDER", "PROVIDER"} {
+		if v := strings.TrimSpace(merged[selKey]); v != "" {
+			selected = config.NormalizeProvider(v)
+			break
+		}
+	}
+	if selected == "" {
+		if r, err := config.Resolve(); err == nil && r != nil {
+			selected = config.NormalizeProvider(r.Provider)
+		}
+	}
+
+	// If a different provider is selected and its key is provided, this one is an alternative.
+	if selected != "" && selected != provider {
+		switch selected {
+		case "gemini":
+			if strings.TrimSpace(merged["GEMINI_API_KEY"]) != "" {
+				return true
+			}
+		case "grok":
+			if strings.TrimSpace(merged["XAI_API_KEY"]) != "" {
+				return true
+			}
+		case "openai":
+			if strings.TrimSpace(merged["OPENAI_API_KEY"]) != "" {
+				return true
+			}
+		}
+	}
+
+	// If any other LLM provider key is satisfied and this key came from an example env file
+	// (not direct source code usage), it is an unused alternative from a template.
+	if ev.Source == domain.EnvSourceExample {
+		for otherKey := range providerKeys {
+			if otherKey != ev.Key && strings.TrimSpace(merged[otherKey]) != "" {
+				return true
+			}
+		}
+		if selected != "" && selected != provider {
+			return true
+		}
+	}
+
+	return false
 }
 
 func urlStrings(lock *domain.Lock) []string {

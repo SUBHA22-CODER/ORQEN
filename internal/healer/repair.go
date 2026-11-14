@@ -10,9 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/llm"
-	"github.com/soham1105-tech/orqen/internal/safefs"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/llm"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safefs"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safety"
 	"gopkg.in/yaml.v3"
 )
 
@@ -66,6 +67,12 @@ func ValidateReplacement(file, newContent, original string) []string {
 	var violations []string
 	lower := strings.ToLower(newContent)
 	origLower := strings.ToLower(original)
+
+	// Prohibited operations are policy hard limits: they are invariant
+	// violations, so no judge approval can ever authorize them.
+	if markers := safety.Prohibited(newContent); len(markers) > 0 {
+		violations = append(violations, "prohibited operation: "+strings.Join(markers, "; "))
+	}
 
 	for _, token := range []string{"ignorebuilderrors", "ignore_build_errors", "--no-type-check", "typescript.ignorebuilderrors"} {
 		if strings.Contains(lower, token) {

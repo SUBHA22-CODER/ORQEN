@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
 )
 
 // Options configures tunnel startup.

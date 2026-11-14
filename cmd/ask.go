@@ -10,10 +10,10 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/soham1105-tech/orqen/internal/agent"
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/state"
-	"github.com/soham1105-tech/orqen/internal/ui"
+	"github.com/SUBHA22-CODER/ORQEN/internal/agent"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/state"
+	"github.com/SUBHA22-CODER/ORQEN/internal/ui"
 )
 
 var askCmd = &cobra.Command{

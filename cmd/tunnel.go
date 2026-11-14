@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/tunnel"
-	"github.com/soham1105-tech/orqen/internal/ui"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/tunnel"
+	"github.com/SUBHA22-CODER/ORQEN/internal/ui"
 )
 
 var tunnelPort int

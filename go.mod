@@ -1,4 +1,4 @@
-module github.com/soham1105-tech/orqen
+module github.com/SUBHA22-CODER/ORQEN
 
 go 1.27.1
 

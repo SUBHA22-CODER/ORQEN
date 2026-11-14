@@ -15,15 +15,15 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
-	"github.com/soham1105-tech/orqen/internal/agent"
-	"github.com/soham1105-tech/orqen/internal/config"
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/graph"
-	"github.com/soham1105-tech/orqen/internal/portprobe"
-	"github.com/soham1105-tech/orqen/internal/safefs"
-	"github.com/soham1105-tech/orqen/internal/state"
-	"github.com/soham1105-tech/orqen/internal/tunnel"
-	"github.com/soham1105-tech/orqen/internal/ui"
+	"github.com/SUBHA22-CODER/ORQEN/internal/agent"
+	"github.com/SUBHA22-CODER/ORQEN/internal/config"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/graph"
+	"github.com/SUBHA22-CODER/ORQEN/internal/portprobe"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safefs"
+	"github.com/SUBHA22-CODER/ORQEN/internal/state"
+	"github.com/SUBHA22-CODER/ORQEN/internal/tunnel"
+	"github.com/SUBHA22-CODER/ORQEN/internal/ui"
 )
 
 var chatCmd = &cobra.Command{
@@ -487,7 +487,15 @@ func (m *chatModel) View() string {
 			kind = "DESTRUCTIVE"
 			style = ui.ErrorStyle
 		}
-		bottom = append(bottom, style.Render(fmt.Sprintf("⚠ Allow %s (%s)?  [y/N]", m.pending.tool, kind)))
+		prompt := fmt.Sprintf("⚠ Allow %s (%s)?  [y/N]", m.pending.tool, kind)
+		if m.pending.tool == "onboard_repository" {
+			target := ""
+			if t, ok := m.pending.args["target"].(string); ok && t != "" {
+				target = " for " + t
+			}
+			prompt = fmt.Sprintf("⚠ Allow repository onboarding%s?  [y/N]", target)
+		}
+		bottom = append(bottom, style.Render(prompt))
 	}
 	if m.busy && m.pending == nil {
 		bottom = append(bottom, "  "+m.spin.View()+" "+ui.MutedStyle.Render("working…"))
@@ -633,6 +641,10 @@ func buildChatAgent(client domain.LLMClient, mgr *state.Manager, lock *domain.Lo
 		Allocator:    portprobe.New(),
 		EventHandler: onEvent,
 		Confirm:      confirm,
+		// Judge approval backend: natural-language approval intents route to
+		// deterministic verification and the shared approval store.
+		Approvals: sharedApprovalStore(),
+		Judge:     currentJudgeIdentity(),
 		Onboard: func(ctx context.Context, target string, maxServices int, noRun bool, progress func(string)) (*agent.OnboardResult, error) {
 			return onboardForAgent(ctx, target, maxServices, noRun, progress, client)
 		},

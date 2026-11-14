@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/soham1105-tech/orqen/internal/config"
+	"github.com/SUBHA22-CODER/ORQEN/internal/config"
 )
 
 func TestPersistPanelConfigAllowsEnvKey(t *testing.T) {
@@ -40,10 +40,10 @@ func TestPersistPanelConfigRequiresKey(t *testing.T) {
 func TestConfigPanelProviderCycle(t *testing.T) {
 	m := newConfigPanelModel(&config.Config{LLMProvider: "gemini", LLMModel: config.DefaultModel("gemini")}, nil)
 	m.cycleProvider(1)
-	if m.provider != "openai" {
+	if m.provider != "grok" {
 		t.Fatalf("provider = %q", m.provider)
 	}
-	if got := m.inputs[0].Value(); got != config.DefaultModel("openai") {
+	if got := m.inputs[0].Value(); got != config.DefaultModel("grok") {
 		t.Fatalf("model = %q", got)
 	}
 	if m.View() == "" {
@@ -78,8 +78,8 @@ func TestConfigPanelSaveShowsValidationError(t *testing.T) {
 	t.Setenv("ORQEN_HOME", t.TempDir())
 	cfg := config.LoadOptional()
 	m := newConfigPanelModel(cfg, &config.Resolved{Provider: "gemini", APIKey: "env-key"})
-	m.provider = "openai"
-	m.inputs[0].SetValue("gpt-4o-mini")
+	m.provider = "grok"
+	m.inputs[0].SetValue("grok-4.7")
 	m.inputs[1].SetValue("")
 	m.focus = cfgFieldSave
 	final, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})

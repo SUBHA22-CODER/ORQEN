@@ -6,7 +6,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/soham1105-tech/orqen/internal/agent"
+	"github.com/SUBHA22-CODER/ORQEN/internal/agent"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safety"
 )
 
 // ProjectView is the sidebar/project summary.
@@ -63,6 +64,15 @@ type Backend interface {
 	Projects(ctx context.Context) ([]ProjectView, error)
 	Config(ctx context.Context) (ConfigView, error)
 	Send(ctx context.Context, req ChatRequest, emit func(agent.Event)) (*Outcome, error)
+	// Approval backend (judge HITL): list, inspect, decide, and subscribe.
+	ListApprovals(projectID string) ([]safety.Approval, error)
+	GetApproval(approvalID string) (*safety.Approval, error)
+	DecideApproval(decision safety.ApprovalDecision) (*safety.Approval, error)
+	SubscribeApprovals(buffer int) (<-chan safety.ApprovalEvent, func())
+	// TriggerApprovalDemo runs one simulated judge-demo event through the
+	// real pipeline against an isolated fixture. Event names are the
+	// Demo* constants from the safety engine's CLI layer.
+	TriggerApprovalDemo(event string) (map[string]any, error)
 }
 
 // Message is one stored chat message.

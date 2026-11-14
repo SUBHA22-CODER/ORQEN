@@ -13,8 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/safefs"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safefs"
 )
 
 // Config is the persisted global configuration (never committed; 0600).
@@ -222,10 +222,17 @@ func lookupEnv(dotEnv map[string]string, keys ...string) string {
 	return ""
 }
 
+// SupportedProviders returns the supported user-facing LLM providers.
+func SupportedProviders() []string {
+	return []string{"gemini", "grok"}
+}
+
 func providerEnvKey(provider string) string {
 	switch NormalizeProvider(provider) {
 	case "gemini":
 		return "GEMINI_API_KEY"
+	case "grok":
+		return "XAI_API_KEY"
 	case "openai":
 		return "OPENAI_API_KEY"
 	case "anthropic":
@@ -242,6 +249,8 @@ func DefaultModel(provider string) string {
 	switch NormalizeProvider(provider) {
 	case "gemini":
 		return "gemini-3.5-flash-lite"
+	case "grok":
+		return "grok-4.7"
 	case "openai":
 		return "gpt-4o-mini"
 	case "anthropic":
@@ -260,6 +269,8 @@ func NormalizeProvider(p string) string {
 	switch strings.ToLower(strings.TrimSpace(p)) {
 	case "gemini", "google", "google-gemini", "googleai":
 		return "gemini"
+	case "grok", "xai", "x-ai":
+		return "grok"
 	case "openai", "open-ai":
 		return "openai"
 	case "anthropic", "claude":
@@ -273,6 +284,16 @@ func NormalizeProvider(p string) string {
 	}
 }
 
+// IsKnownProvider reports whether a normalized provider name is recognized.
+func IsKnownProvider(p string) bool {
+	switch NormalizeProvider(p) {
+	case "gemini", "grok", "openai", "anthropic", "groq", "ollama":
+		return true
+	default:
+		return false
+	}
+}
+
 // Resolve builds a fully-resolved provider configuration, merging OS env,
 // dotenv, and config.json. It returns domain.ErrNotConfigured when no usable
 // provider/key can be found.
@@ -280,13 +301,20 @@ func Resolve() (*Resolved, error) {
 	cfg := LoadOptional()
 	dotEnv := LoadDotEnv(envFiles()...)
 
-	provider := NormalizeProvider(firstNonEmpty(
+	rawProvider := firstNonEmpty(
 		lookupEnv(dotEnv, "ORQEN_LLM_PROVIDER"),
 		cfg.LLMProvider,
-	))
+	)
+	provider := NormalizeProvider(rawProvider)
+	if rawProvider != "" && !IsKnownProvider(provider) {
+		return nil, domain.E(domain.KindConfig, "config.Resolve",
+			fmt.Sprintf("unknown provider %q: supported providers are gemini, grok", rawProvider),
+			nil)
+	}
+
 	if provider == "" {
-		// Infer from whichever key is present.
-		for _, p := range []string{"gemini", "openai", "anthropic", "groq"} {
+		// Infer from whichever key is present, prioritizing gemini and grok.
+		for _, p := range []string{"gemini", "grok", "openai", "anthropic", "groq"} {
 			if lookupEnv(dotEnv, providerEnvKey(p)) != "" {
 				provider = p
 				break
@@ -294,7 +322,9 @@ func Resolve() (*Resolved, error) {
 		}
 	}
 	if provider == "" {
-		return nil, domain.E(domain.KindConfig, "config.Resolve", "no LLM provider configured", domain.ErrNotConfigured)
+		return nil, domain.E(domain.KindConfig, "config.Resolve",
+			"no LLM provider configured: set GEMINI_API_KEY or XAI_API_KEY in .env, or run `orqen setup`",
+			domain.ErrNotConfigured)
 	}
 
 	model := firstNonEmpty(lookupEnv(dotEnv, "ORQEN_LLM_MODEL"), cfg.LLMModel, DefaultModel(provider))

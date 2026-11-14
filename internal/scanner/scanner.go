@@ -11,12 +11,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/scanner/fsutil"
-	"github.com/soham1105-tech/orqen/internal/scanner/golang"
-	"github.com/soham1105-tech/orqen/internal/scanner/node"
-	"github.com/soham1105-tech/orqen/internal/scanner/python"
-	"github.com/soham1105-tech/orqen/internal/scanner/rust"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/scanner/fsutil"
+	"github.com/SUBHA22-CODER/ORQEN/internal/scanner/golang"
+	"github.com/SUBHA22-CODER/ORQEN/internal/scanner/node"
+	"github.com/SUBHA22-CODER/ORQEN/internal/scanner/python"
+	"github.com/SUBHA22-CODER/ORQEN/internal/scanner/rust"
 )
 
 // Result is the outcome of a scan.

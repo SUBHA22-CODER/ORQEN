@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/scanner/fsutil"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/scanner/fsutil"
 )
 
 // PackageJSON is the subset of package.json ORQEN cares about.

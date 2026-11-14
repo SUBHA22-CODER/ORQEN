@@ -8,12 +8,13 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/envvar"
-	"github.com/soham1105-tech/orqen/internal/graph"
-	"github.com/soham1105-tech/orqen/internal/healer"
-	"github.com/soham1105-tech/orqen/internal/httpcheck"
-	"github.com/soham1105-tech/orqen/internal/llm"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/envvar"
+	"github.com/SUBHA22-CODER/ORQEN/internal/graph"
+	"github.com/SUBHA22-CODER/ORQEN/internal/healer"
+	"github.com/SUBHA22-CODER/ORQEN/internal/httpcheck"
+	"github.com/SUBHA22-CODER/ORQEN/internal/llm"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safety"
 )
 
 // IntentKind is a stable, testable user intent.
@@ -39,6 +40,7 @@ const (
 	IntentGenerate      IntentKind = "generate"
 	IntentOnboard       IntentKind = "onboard"
 	IntentSwitchProject IntentKind = "switch_project"
+	IntentApproval      IntentKind = "approval"
 	IntentHelp          IntentKind = "help"
 	IntentGreeting      IntentKind = "greeting"
 	IntentChat          IntentKind = "chat"
@@ -60,21 +62,25 @@ type IntentContext struct {
 
 // Intent is the structured interpretation of a user request.
 type Intent struct {
-	Kind               IntentKind `json:"kind"`
-	Project            string     `json:"project,omitempty"`
-	Service            string     `json:"service,omitempty"`
-	Key                string     `json:"key,omitempty"`
-	Value              string     `json:"value,omitempty"`
-	Path               string     `json:"path,omitempty"`
-	Target             string     `json:"target,omitempty"`
-	Port               int        `json:"port,omitempty"`
-	NoRun              bool       `json:"no_run,omitempty"`
-	Confidence         float64    `json:"confidence"`
-	Goal               string     `json:"goal,omitempty"`
-	NeedsClarification bool       `json:"needs_clarification,omitempty"`
-	Clarification      string     `json:"clarification,omitempty"`
-	Source             string     `json:"source,omitempty"`
-	Raw                string     `json:"raw,omitempty"`
+	Kind       IntentKind `json:"kind"`
+	Project    string     `json:"project,omitempty"`
+	Service    string     `json:"service,omitempty"`
+	Key        string     `json:"key,omitempty"`
+	Value      string     `json:"value,omitempty"`
+	Path       string     `json:"path,omitempty"`
+	Target     string     `json:"target,omitempty"`
+	Port       int        `json:"port,omitempty"`
+	NoRun      bool       `json:"no_run,omitempty"`
+	Confidence float64    `json:"confidence"`
+	Goal       string     `json:"goal,omitempty"`
+	// Approval carries the classified natural-language approval instruction
+	// when Kind is IntentApproval. The LLM never fills this in: it is set by
+	// the deterministic RecognizeApproval classifier only.
+	Approval           *safety.NLApprovalIntent `json:"approval,omitempty"`
+	NeedsClarification bool                     `json:"needs_clarification,omitempty"`
+	Clarification      string                   `json:"clarification,omitempty"`
+	Source             string                   `json:"source,omitempty"`
+	Raw                string                   `json:"raw,omitempty"`
 }
 
 var (
@@ -107,6 +113,22 @@ func ParseIntent(text string, ictx IntentContext) Intent {
 		// Pure greetings ("hi", "what's up") must never reach the tool loop or
 		// the fragile " up" substring match below.
 		it.Kind, it.Confidence = IntentGreeting, 0.99
+	case approvalUtterance(lower):
+		// Judge approval language. Must be classified before the heal case:
+		// "I approve this high-risk repair" contains "repair" and would
+		// otherwise be routed to a heal attempt.
+		na := safety.RecognizeApproval(raw)
+		it.Kind, it.Confidence = IntentApproval, 0.9
+		it.Approval = &na
+		if na.Kind == safety.NLUnclear || !na.Explicit {
+			it.NeedsClarification = true
+			it.Confidence = 0.6
+			if len(na.Ambiguities) > 0 {
+				it.Clarification = "Approval instruction unclear: " + strings.Join(na.Ambiguities, "; ")
+			} else {
+				it.Clarification = "Which approval should I act on? Name the approval id (e.g. `approve ORQEN-101`)."
+			}
+		}
 	case containsAny(lower, "is it up", "is it running", "is the app up", "is everything up", "what is running", "what's running", "whats running"):
 		it.Kind, it.Confidence = IntentStatus, 0.95
 	case containsAny(lower, "help", "what can you do", "what do you do", "commands", "how do i use"):
@@ -385,7 +407,8 @@ func (a *Agent) RunIntent(ctx context.Context, text string, ictx IntentContext) 
 	// Project-less sessions answer clearly instead of erroring inside a tool.
 	if a.opts.Project == nil && len(ictx.Projects) == 0 {
 		runsProjectLess := intent.Kind == IntentChat || intent.Kind == IntentHelp ||
-			intent.Kind == IntentGreeting || intent.Kind == IntentOnboard || intent.Kind == IntentSwitchProject
+			intent.Kind == IntentGreeting || intent.Kind == IntentOnboard || intent.Kind == IntentSwitchProject ||
+			intent.Kind == IntentApproval
 		if !runsProjectLess && !(intent.Kind == IntentScan && intent.Path != "") {
 			res := a.resultFor("No projects are onboarded yet. Use `/onboard <git-url-or-path>` (or `orqen init`) to bring one up, and I'll manage it from there.", intent)
 			return res, nil
@@ -403,6 +426,14 @@ func (a *Agent) RunIntent(ctx context.Context, text string, ictx IntentContext) 
 		return a.runOnboardIntent(ctx, intent)
 	case IntentSwitchProject:
 		res := a.resultFor(fmt.Sprintf("Switching context to %s.", intent.Project), intent)
+		return res, nil
+	case IntentApproval:
+		final, aerr := a.handleApprovalIntent(ctx, intent)
+		res := a.resultFor(final, intent)
+		if aerr != nil {
+			res.State = StateFailed
+			return res, aerr
+		}
 		return res, nil
 	case IntentHelp:
 		res := a.resultFor(helpText(), intent)
@@ -633,9 +664,15 @@ func (a *Agent) runOnboardIntent(ctx context.Context, it Intent) (*Result, error
 	}
 	args := map[string]any{"target": it.Target, "no_run": it.NoRun}
 	if !a.opts.AutoApprove {
-		if a.opts.Confirm == nil || !a.opts.Confirm("onboard_repository", false, args) {
-			a.emit(Event{Type: "permission_denied", Tool: "onboard_repository", Args: args, Message: "onboarding denied"})
-			res := a.resultFor("Onboarding was not approved.", it)
+		if a.opts.Confirm == nil {
+			a.emit(Event{Type: "permission_denied", Tool: "onboard_repository", Args: args, Message: "confirmation callback unavailable"})
+			res := a.resultFor("Onboarding was not approved: no confirmation callback is available in this session. Re-run with an interactive confirmation callback or enable auto-approval.", it)
+			res.State = StateFailed
+			return res, nil
+		}
+		if !a.opts.Confirm("onboard_repository", false, args) {
+			a.emit(Event{Type: "permission_denied", Tool: "onboard_repository", Args: args, Message: "onboarding denied by user"})
+			res := a.resultFor("Onboarding was not approved: permission denied. You can approve the action or try again.", it)
 			res.State = StateFailed
 			return res, nil
 		}
@@ -918,6 +955,18 @@ func helpText() string {
 
 func hasWord(s, word string) bool {
 	return regexp.MustCompile(`\b` + regexp.QuoteMeta(word) + `\b`).MatchString(s)
+}
+
+// approvalUtterance reports whether the text plausibly talks about judge
+// approvals. The deterministic RecognizeApproval classifier then decides
+// what (if anything) the words authorize.
+func approvalUtterance(lower string) bool {
+	return containsAny(lower,
+		"approve", "approved", "approval", "reject", "deny", "decline", "veto",
+		"sign off", "orqen-", "apr-",
+		"investigate further", "do not repair", "don't repair",
+		"show me the changes", "show the diff", "diagnostics only",
+	)
 }
 
 func containsAny(s string, subs ...string) bool {

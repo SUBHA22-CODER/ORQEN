@@ -2,13 +2,15 @@
 package golang
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/scanner/fsutil"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/scanner/fsutil"
 )
 
 var (
@@ -19,6 +21,8 @@ var (
 		regexp.MustCompile(`Addr:\s*"[^"]*:(\d{2,5})"`),
 		regexp.MustCompile(`\.Run\(\s*"[^"]*:(\d{2,5})"`),
 		regexp.MustCompile(`net\.JoinHostPort\([^)]*"(\d{2,5})"`),
+		regexp.MustCompile(`(?i)(?:--port|["']port["'])\s*,\s*(\d{2,5})`),
+		regexp.MustCompile(`(?i)(?:servePort|defaultPort|listenPort)\s*(?::=|=)\s*(\d{2,5})`),
 		regexp.MustCompile(`:(\d{2,5})"\s*\)`),
 	}
 	httpUsageRe = regexp.MustCompile(`net/http|gin-gonic|labstack/echo|gofiber/fiber|go-chi/chi|gorilla/mux`)
@@ -40,7 +44,8 @@ func Detect(relPath, dir string) *domain.Service {
 		name = fsutil.SanitizeName(filepath.Base(dir))
 	}
 
-	port := detectPort(mainDir)
+	port := detectPort(dir)
+	startCmd := detectServeCmd(dir, port)
 	svc := &domain.Service{
 		Name:           name,
 		Path:           cleanRel(relPath),
@@ -56,7 +61,7 @@ func Detect(relPath, dir string) *domain.Service {
 	} else {
 		svc.BuildCmd = "go build -o app ./" + mainRel
 	}
-	svc.StartCmd = "./app"
+	svc.StartCmd = startCmd
 	if exposed := fsutil.DockerfileExpose(dir); exposed > 0 {
 		svc.DefaultPort = exposed
 		svc.Port = exposed
@@ -64,6 +69,46 @@ func Detect(relPath, dir string) *domain.Service {
 	}
 	svc.TestCmd = "go test ./..."
 	return svc
+}
+
+var serveCmdRe = regexp.MustCompile(`(?i)(?:Use:\s*["']serve["']|serveCmd\s*=|func\s+runServe\b)`)
+
+func detectServeCmd(root string, port int) string {
+	hasServe := false
+	_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			switch d.Name() {
+			case ".git", "vendor", "testdata", "node_modules":
+				if path != root {
+					return filepath.SkipDir
+				}
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		if serveCmdRe.Match(data) {
+			hasServe = true
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	if hasServe {
+		pStr := "8080"
+		if port > 0 {
+			pStr = strconv.Itoa(port)
+		}
+		return fmt.Sprintf("./app serve --host 0.0.0.0 --port %s --no-open", pStr)
+	}
+	return "./app"
 }
 
 func findMain(root string) (dir, rel string) {

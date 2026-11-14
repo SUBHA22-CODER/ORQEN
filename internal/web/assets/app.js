@@ -782,16 +782,24 @@ function finalizeTurn(done, placeholder, payload) {
 /* --------------------------------------------------------------- modal */
 function showModal(confirmation) {
   const destructive = confirmation.destructive;
+  const isDeployOrOnboard = confirmation.tool === 'onboard_repository';
+  els.modalTitle.textContent = destructive
+    ? 'Destructive action'
+    : (isDeployOrOnboard ? 'Approve Repository Onboarding' : 'Confirmation required');
   els.modalText.textContent = destructive
     ? `ORQEN needs approval for a destructive action: ${confirmation.tool}.`
-    : `ORQEN needs approval to run: ${confirmation.tool}.`;
+    : (isDeployOrOnboard
+        ? `ORQEN is requesting approval to analyze and onboard repository "${confirmation.args?.target || ''}". Do you approve?`
+        : `ORQEN needs approval to run: ${confirmation.tool}.`);
   els.modalArgs.textContent = JSON.stringify(confirmation.args || {}, null, 2);
   els.modal.hidden = false;
+  els.modal.classList.remove('hidden');
   els.modalConfirm.focus();
 }
 
 function hideModal() {
   els.modal.hidden = true;
+  els.modal.classList.add('hidden');
   state.pending = null;
 }
 

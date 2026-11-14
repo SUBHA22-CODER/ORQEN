@@ -16,7 +16,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
 )
 
 // Compose wraps a docker compose project.
@@ -273,6 +273,72 @@ func (c *Compose) StreamLogs(ctx context.Context, service string) (io.ReadCloser
 		_ = r.Close()
 	}
 	return r, cleanup, nil
+}
+
+// InspectContainer inspects a single container by ID or name and returns its detail.
+func InspectContainer(ctx context.Context, id string) (*domain.Container, error) {
+	if strings.TrimSpace(id) == "" {
+		return nil, domain.E(domain.KindDocker, "docker.InspectContainer", "empty container id", nil)
+	}
+	out, err := exec.CommandContext(ctx, "docker", "inspect", id).Output()
+	if err != nil {
+		return nil, domain.E(domain.KindDocker, "docker.InspectContainer", "docker inspect failed", err)
+	}
+	var items []struct {
+		ID     string `json:"Id"`
+		Name   string `json:"Name"`
+		Image  string `json:"Image"`
+		Config struct {
+			Cmd []string `json:"Cmd"`
+		} `json:"Config"`
+		State struct {
+			Status     string `json:"Status"`
+			Running    bool   `json:"Running"`
+			Restarting bool   `json:"Restarting"`
+			OOMKilled  bool   `json:"OOMKilled"`
+			Dead       bool   `json:"Dead"`
+			ExitCode   int    `json:"ExitCode"`
+			Error      string `json:"Error"`
+			StartedAt  string `json:"StartedAt"`
+			FinishedAt string `json:"FinishedAt"`
+			Health     *struct {
+				Status string `json:"Status"`
+			} `json:"Health"`
+		} `json:"State"`
+		RestartCount int `json:"RestartCount"`
+		HostConfig   struct {
+			RestartPolicy struct {
+				Name string `json:"Name"`
+			} `json:"RestartPolicy"`
+		} `json:"HostConfig"`
+	}
+	if err := json.Unmarshal(out, &items); err != nil || len(items) == 0 {
+		return nil, domain.E(domain.KindDocker, "docker.InspectContainer", "decode inspect JSON", err)
+	}
+	item := items[0]
+	health := ""
+	if item.State.Health != nil {
+		health = item.State.Health.Status
+	}
+	state := item.State.Status
+	if item.State.Restarting {
+		state = "restarting"
+	}
+	cmdStr := strings.Join(item.Config.Cmd, " ")
+	return &domain.Container{
+		ID:            item.ID,
+		Name:          strings.TrimPrefix(item.Name, "/"),
+		State:         state,
+		Health:        health,
+		ExitCode:      item.State.ExitCode,
+		RestartCount:  item.RestartCount,
+		RestartPolicy: item.HostConfig.RestartPolicy.Name,
+		OOMKilled:     item.State.OOMKilled,
+		Error:         item.State.Error,
+		Command:       cmdStr,
+		StartedAt:     item.State.StartedAt,
+		FinishedAt:    item.State.FinishedAt,
+	}, nil
 }
 
 // Validate renders the compose file with the Docker CLI to catch schema errors

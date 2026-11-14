@@ -9,7 +9,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
 )
 
 // GenerateDockerfile renders a hermetic multi-stage Dockerfile for svc.
@@ -302,7 +302,20 @@ func generateGo(svc *domain.Service, opts Options) string {
 		w("ENV PORT=%d HOST=0.0.0.0", svc.Port)
 		w("EXPOSE %d", port)
 	}
-	w("CMD [\"/app/app\"]")
+	start := strings.TrimSpace(svc.StartCmd)
+	if start != "" && start != "./app" && start != "/app/app" {
+		if strings.HasPrefix(start, "./app") {
+			start = "/app/app" + strings.TrimPrefix(start, "./app")
+		}
+		parts := strings.Fields(start)
+		if len(parts) > 1 && parts[0] == "/app/app" {
+			w("CMD %s", jsonArray(parts...))
+		} else {
+			w("CMD %s", jsonArray("sh", "-c", start))
+		}
+	} else {
+		w("CMD [\"/app/app\"]")
+	}
 	return b.String()
 }
 

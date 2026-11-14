@@ -17,9 +17,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/llm"
-	"github.com/soham1105-tech/orqen/internal/safefs"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/llm"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safefs"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safety"
 )
 
 // DefaultMaxTries is the default repair budget.
@@ -50,6 +51,12 @@ type Healer struct {
 	// RestartGrace is how long a container may stay in "restarting" before it is
 	// treated as a crash loop. Defaults to 10s.
 	RestartGrace time.Duration
+	// Safety is the optional Repair Safety Engine gate. When nil, healing
+	// behaves exactly as before. When set, healing is gated on deterministic
+	// evidence: transient faults cause no modification, AI diagnoses are
+	// cross-checked against observations, patches are sandbox-validated,
+	// risky repairs need approval, and repeated failures trip a breaker.
+	Safety *safety.Gate
 }
 
 // Attempt records one healing iteration.
@@ -132,12 +139,45 @@ func (h *Healer) Heal(ctx context.Context, initialOutput, failingService string)
 	}
 	res := &Result{}
 	originals := h.snapshotManifests()
+	// signature keys breaker and audit records: the analyzed failure
+	// fingerprint once known, otherwise the gate's observed signature.
+	signature := ""
 	rollback := func(r *Result) *Result {
 		h.restoreManifests(originals)
 		if r != nil {
 			r.Summary = strings.TrimSpace(r.Summary + " (healer changes rolled back)")
 		}
+		if h.Safety != nil {
+			h.Safety.RecordOutcome(signature, false, resultSummary(r))
+		}
 		return r
+	}
+
+	// Safety preflight: for runtime-state heals (no build output in hand), the
+	// gate observes the live stack and may stop before anything happens —
+	// transient faults, already-healthy stacks, and open circuits all modify
+	// nothing. Build-failure heals keep their legacy path: the build output
+	// itself is the deterministic evidence, and a fallback verdict is derived
+	// from it when a patch review needs one.
+	var verdict *safety.Verdict
+	if h.Safety != nil && strings.TrimSpace(initialOutput) == "" {
+		v, perr := h.Safety.PreFlight(ctx, "")
+		if perr != nil {
+			return nil, perr
+		}
+		switch v.Decision {
+		case safety.NoAction:
+			if len(v.Evidence.Problems()) == 0 {
+				// Healthy stack or a fault that recovered on its own.
+				h.logf("✓ %s", v.Reason)
+				return &Result{Success: true, Verified: true, Summary: v.Reason}, nil
+			}
+			return &Result{Summary: v.Reason}, domain.E(domain.KindHealth, "healer.Heal", v.Reason, domain.ErrUnfixable)
+		case safety.Investigate:
+			h.logf("▸ safety gate: %s", safety.OneLine(v.Reason))
+		}
+		verdict = &v
+		signature = v.Signature
 	}
 	var prev *Failure
 	var lastOutput string
@@ -159,6 +199,9 @@ func (h *Healer) Heal(ctx context.Context, initialOutput, failingService string)
 				res.Verified = true
 				res.Summary = "build succeeded and runtime health verified"
 				res.FinalLog = lastOutput
+				if h.Safety != nil {
+					h.Safety.RecordOutcome(signature, true, res.Summary)
+				}
 				return res, nil
 			} else {
 				h.logf("⚠ runtime unhealthy: %v", verr)
@@ -170,8 +213,11 @@ func (h *Healer) Heal(ctx context.Context, initialOutput, failingService string)
 					f.Error = verr.Error()
 				}
 				f.Progression = ClassifyProgression(&f, prev)
+				if signature == "" {
+					signature = f.Fingerprint()
+				}
 				res.Attempts = append(res.Attempts, Attempt{N: attempt, Kind: "runtime", Service: svcName, Summary: f.Summary(), Progression: f.Progression, Duration: time.Since(start)})
-				applied, summary, herr := h.repairOnce(ctx, svcName, f, rtLog, true, true)
+				applied, summary, herr := h.repairOnce(ctx, svcName, f, rtLog, true, true, verdict)
 				if herr != nil {
 					res.Summary = "runtime unhealthy and repair failed"
 					return rollback(res), herr
@@ -188,11 +234,14 @@ func (h *Healer) Heal(ctx context.Context, initialOutput, failingService string)
 
 		f := Analyze(lastOutput, failingService)
 		f.Progression = ClassifyProgression(&f, prev)
+		if signature == "" {
+			signature = f.Fingerprint()
+		}
 		svcName := h.resolveService(failingService, f.Service)
 		res.Attempts = append(res.Attempts, Attempt{N: attempt, Kind: "build", Service: svcName, Summary: f.Summary(), Progression: f.Progression, Duration: time.Since(start)})
 		h.logf("× build failed (%s): %s", f.Category, f.Error)
 
-		applied, summary, herr := h.repairOnce(ctx, svcName, f, lastOutput, false, !f.Source)
+		applied, summary, herr := h.repairOnce(ctx, svcName, f, lastOutput, false, !f.Source, verdict)
 		if herr != nil {
 			res.Summary = "build failed and repair errored"
 			res.FinalLog = Tail(lastOutput, 80)
@@ -220,6 +269,9 @@ func (h *Healer) Heal(ctx context.Context, initialOutput, failingService string)
 			res.Verified = true
 			res.Summary = "build succeeded after repair budget"
 			res.FinalLog = lastOutput
+			if h.Safety != nil {
+				h.Safety.RecordOutcome(signature, true, res.Summary)
+			}
 			return res, nil
 		} else {
 			res.Summary = "build succeeded but runtime health failed"
@@ -232,7 +284,14 @@ func (h *Healer) Heal(ctx context.Context, initialOutput, failingService string)
 	return rollback(res), domain.E(domain.KindDocker, "healer.Heal", res.Summary, err)
 }
 
-func (h *Healer) repairOnce(ctx context.Context, svcName string, f Failure, output string, runtime, allowLLM bool) (bool, string, error) {
+func (h *Healer) repairOnce(ctx context.Context, svcName string, f Failure, output string, runtime, allowLLM bool, verdict *safety.Verdict) (bool, string, error) {
+	// Circuit breaker: repeated failed repairs for the same failure signature
+	// pause autonomous healing until the cooldown elapses.
+	if h.Safety != nil && h.Safety.Breaker != nil {
+		if ok, why := h.Safety.Breaker.Allow(f.Fingerprint()); !ok {
+			return false, "", domain.E(domain.KindHealth, "healer.repairOnce", why, domain.ErrUnfixable)
+		}
+	}
 	dfName, content, err := h.readDockerfile(svcName)
 	if err != nil {
 		// No Dockerfile to repair: fall through to LLM only if a compose file exists.
@@ -241,7 +300,7 @@ func (h *Healer) repairOnce(ctx context.Context, svcName string, f Failure, outp
 	if content != "" {
 		newContent, rule, summary, ok := ApplyDeterministic(content, f.RelevantLog)
 		if ok {
-			if err := h.writeRepair(dfName, newContent, content, f, rule); err != nil {
+			if err := h.writeRepair(ctx, dfName, newContent, content, f, rule, verdict); err != nil {
 				return false, "", err
 			}
 			return true, rule + ": " + summary, nil
@@ -250,7 +309,7 @@ func (h *Healer) repairOnce(ctx context.Context, svcName string, f Failure, outp
 	if h.LLM == nil || !allowLLM {
 		return false, "", nil
 	}
-	applied, summary, err := h.llmRepair(ctx, svcName, dfName, f, output, runtime)
+	applied, summary, err := h.llmRepair(ctx, svcName, dfName, f, output, runtime, verdict)
 	if err != nil {
 		return false, "", err
 	}
@@ -284,12 +343,29 @@ func (h *Healer) readDockerfile(svcName string) (string, string, error) {
 	return name, string(data), nil
 }
 
-func (h *Healer) writeRepair(name, newContent, oldContent string, f Failure, operation string) error {
+func (h *Healer) writeRepair(ctx context.Context, name, newContent, oldContent string, f Failure, operation string, verdict *safety.Verdict) error {
 	if h.WorkJail == nil {
 		return domain.E(domain.KindIO, "healer.writeRepair", "no work jail", nil)
 	}
 	if violations := ValidateReplacement(name, newContent, oldContent); len(violations) > 0 {
 		return domain.E(domain.KindValidation, "healer.writeRepair", "invariant violation: "+strings.Join(violations, "; "), nil)
+	}
+	// Safety gate: deterministic repairs carry no model claims, but their
+	// output still passes sandbox validation before touching production files.
+	if h.Safety != nil {
+		v := verdict
+		if v == nil {
+			v = h.fallbackVerdict(f)
+		}
+		pd := h.Safety.ReviewPlan(ctx, *v,
+			safety.Diagnosis{Raw: operation, SourceKind: "deterministic"},
+			h.proposalWithCompose(map[string]string{name: newContent}, f.Service))
+		switch pd.Decision {
+		case safety.NoAction:
+			return domain.E(domain.KindValidation, "healer.writeRepair", pd.Explanation, domain.ErrUnfixable)
+		case safety.Investigate:
+			return domain.E(domain.KindValidation, "healer.writeRepair", pd.Explanation, nil)
+		}
 	}
 	if err := h.WorkJail.WriteFile(name, []byte(newContent), 0o644); err != nil {
 		return domain.E(domain.KindIO, "healer.writeRepair", "write "+name, err)
@@ -441,7 +517,18 @@ func (h *Healer) VerifyRuntime(ctx context.Context) error {
 				restartingSince = time.Now()
 			} else if time.Since(restartingSince) > grace {
 				fatal = true
-				detail += " (crash loop)"
+				cleanExit := false
+				for _, c := range ps {
+					if c.State == "restarting" && c.ExitCode == 0 {
+						cleanExit = true
+						break
+					}
+				}
+				if cleanExit {
+					detail = "The container process completed successfully but the configured restart policy repeatedly restarted it. Inspect the startup command and service mode."
+				} else {
+					detail += " (crash loop)"
+				}
 			}
 		} else {
 			restartingSince = time.Time{}
@@ -500,11 +587,20 @@ func containerHealth(ps []domain.Container) (ready, fatal, restarting bool, deta
 		return false, false, false, "no containers"
 	}
 	for _, c := range ps {
+		if c.OOMKilled {
+			return false, true, false, fmt.Sprintf("%s was killed by OOM (Out of Memory)", c.Service)
+		}
 		if c.State == "exited" || c.State == "dead" {
+			if c.ExitCode == 0 {
+				return false, true, false, fmt.Sprintf("%s exited with code 0 (stopped)", c.Service)
+			}
 			return false, true, false, fmt.Sprintf("%s is %s (exit %d)", c.Service, c.State, c.ExitCode)
 		}
 		if c.State == "restarting" {
-			return false, c.ExitCode != 0, true, fmt.Sprintf("%s is restarting (exit %d)", c.Service, c.ExitCode)
+			if c.ExitCode == 0 {
+				return false, false, true, fmt.Sprintf("%s is restarting (exit 0)", c.Service)
+			}
+			return false, true, true, fmt.Sprintf("%s is restarting (exit %d)", c.Service, c.ExitCode)
 		}
 		if c.State != "running" {
 			return false, false, false, fmt.Sprintf("%s is %s", c.Service, c.State)
@@ -517,7 +613,7 @@ func containerHealth(ps []domain.Container) (ready, fatal, restarting bool, deta
 }
 
 // llmRepair performs the invariant-guarded LLM repair with a stale-context guard.
-func (h *Healer) llmRepair(ctx context.Context, svcName, dfName string, f Failure, output string, runtime bool) (bool, string, error) {
+func (h *Healer) llmRepair(ctx context.Context, svcName, dfName string, f Failure, output string, runtime bool, verdict *safety.Verdict) (bool, string, error) {
 	if h.LLM == nil || h.WorkJail == nil {
 		return false, "", nil
 	}
@@ -587,7 +683,7 @@ func (h *Healer) llmRepair(ctx context.Context, svcName, dfName string, f Failur
 			}
 		}
 
-		applied, summary, err := h.applyPlan(dfName, plan, f)
+		applied, summary, err := h.applyPlan(ctx, dfName, plan, f, verdict)
 		if err != nil {
 			if domain.IsKind(err, domain.KindValidation) {
 				files = append(files, FileEntry{
@@ -605,7 +701,7 @@ func (h *Healer) llmRepair(ctx context.Context, svcName, dfName string, f Failur
 	return false, "", domain.E(domain.KindLLM, "healer.llmRepair", "model did not produce an applicable repair in 3 rounds", domain.ErrUnfixable)
 }
 
-func (h *Healer) applyPlan(dfName string, plan *RepairPlan, f Failure) (bool, string, error) {
+func (h *Healer) applyPlan(ctx context.Context, dfName string, plan *RepairPlan, f Failure, verdict *safety.Verdict) (bool, string, error) {
 	type pending struct {
 		file, content string
 		old           []byte
@@ -694,6 +790,31 @@ func (h *Healer) applyPlan(dfName string, plan *RepairPlan, f Failure) (bool, st
 
 	if len(writes) == 0 {
 		return false, "", nil
+	}
+
+	// Safety gate: cross-check the model's diagnosis against deterministic
+	// evidence, sandbox-validate the proposed files in isolation, and require
+	// approval for risky or destructive repairs — all before production
+	// application. Conflicts and sandbox failures feed back as validation
+	// errors so the model can correct itself within the existing round budget.
+	if h.Safety != nil {
+		v := verdict
+		if v == nil {
+			v = h.fallbackVerdict(f)
+		}
+		files := make(map[string]string, len(writes))
+		for _, w := range writes {
+			files[w.file] = w.content
+		}
+		pd := h.Safety.ReviewPlan(ctx, *v,
+			safety.Diagnosis{Raw: plan.Diagnosis, Claims: safety.ExtractClaims(plan.Diagnosis), SourceKind: "llm"},
+			h.proposalWithCompose(files, f.Service))
+		switch pd.Decision {
+		case safety.Investigate:
+			return false, "", domain.E(domain.KindValidation, "healer.applyPlan", pd.Explanation, nil)
+		case safety.NoAction:
+			return false, "", domain.E(domain.KindValidation, "healer.applyPlan", pd.Explanation, domain.ErrUnfixable)
+		}
 	}
 
 	// Everything validated; commit the writes atomically per file.
@@ -821,6 +942,41 @@ func (h *Healer) repairPrompt(svcName, dfName string, f Failure, output, df, com
 }
 
 const repairSystemPrompt = `You are ORQEN's senior build-reliability engineer. You repair generated container manifests, never application source code. You are precise, conservative, and return only valid JSON.`
+
+// fallbackVerdict builds evidence for repairs that start from a build failure
+// (no live-stack preflight ran): the analyzed build log is the deterministic
+// evidence, and build failures are persistent by construction — the build
+// itself reproduced them.
+func (h *Healer) fallbackVerdict(f Failure) *safety.Verdict {
+	ev := safety.Set{At: time.Now().UTC()}
+	if strings.TrimSpace(f.RelevantLog) != "" {
+		ev.Add(safety.Evidence{
+			ID: "log:" + f.Service, Kind: safety.KindLog, Source: safety.SourceLog,
+			Service: f.Service, At: ev.At, Healthy: false,
+			Detail: safety.Tail(f.RelevantLog, 8), Signature: f.Fingerprint(),
+		})
+	}
+	return &safety.Verdict{Evidence: ev, Transience: safety.PersistentFault, Signature: f.Fingerprint()}
+}
+
+// proposalWithCompose includes the current compose file in a sandbox proposal
+// so Dockerfile-only patches can still be config-validated against it.
+func (h *Healer) proposalWithCompose(files map[string]string, service string) safety.Proposal {
+	if _, ok := files["docker-compose.yml"]; !ok && h.WorkJail != nil && h.WorkJail.Exists("docker-compose.yml") {
+		if b, err := h.WorkJail.ReadFile("docker-compose.yml"); err == nil {
+			files["docker-compose.yml"] = string(b)
+		}
+	}
+	return safety.Proposal{Files: files, Service: service}
+}
+
+// resultSummary safely renders a result summary for outcome records.
+func resultSummary(r *Result) string {
+	if r == nil {
+		return ""
+	}
+	return r.Summary
+}
 
 // Tail returns the last n lines of s.
 func sourceFailureError(f Failure) error {

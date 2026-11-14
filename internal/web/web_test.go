@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/soham1105-tech/orqen/internal/agent"
+	"github.com/SUBHA22-CODER/ORQEN/internal/agent"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safety"
 )
 
 type fakeBackend struct {
@@ -34,6 +36,22 @@ func (f *fakeBackend) Send(ctx context.Context, req ChatRequest, emit func(agent
 	}
 	emit(agent.Event{Type: "final", Message: "**demo** is healthy"})
 	return &Outcome{Final: "**demo** is healthy", Intent: &agent.Intent{Kind: agent.IntentStatus, Project: "demo"}, Project: "demo", ProjectID: "demo-1"}, nil
+}
+func (f *fakeBackend) ListApprovals(projectID string) ([]safety.Approval, error) {
+	return nil, nil
+}
+func (f *fakeBackend) GetApproval(approvalID string) (*safety.Approval, error) {
+	return nil, os.ErrNotExist
+}
+func (f *fakeBackend) DecideApproval(decision safety.ApprovalDecision) (*safety.Approval, error) {
+	return nil, nil
+}
+func (f *fakeBackend) SubscribeApprovals(buffer int) (<-chan safety.ApprovalEvent, func()) {
+	ch := make(chan safety.ApprovalEvent)
+	return ch, func() { close(ch) }
+}
+func (f *fakeBackend) TriggerApprovalDemo(event string) (map[string]any, error) {
+	return map[string]any{"ok": true, "event": event}, nil
 }
 
 func newTestServer(t *testing.T, backend Backend) (*httptest.Server, *ChatStore) {

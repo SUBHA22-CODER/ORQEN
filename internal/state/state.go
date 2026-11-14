@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/soham1105-tech/orqen/internal/config"
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/safefs"
+	"github.com/SUBHA22-CODER/ORQEN/internal/config"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safefs"
 )
 
 const (
@@ -22,6 +22,12 @@ const (
 	envFile       = ".env"
 	overridesFile = "env-overrides.json"
 	repairsFile   = "repairs.json"
+	// safetyAuditFile is the Repair Safety Engine decision trail; breakerFile
+	// persists the repair circuit breaker across CLI invocations; approvalsFile
+	// is the judge approval store.
+	safetyAuditFile = "safety.json"
+	breakerFile     = "breaker.json"
+	approvalsFile   = "approvals.json"
 )
 
 // Manager owns one project's state directory.
@@ -63,6 +69,15 @@ func (m *Manager) EnvPath() string       { return filepath.Join(m.Dir, envFile) 
 func (m *Manager) OverridesPath() string { return filepath.Join(m.Dir, overridesFile) }
 func (m *Manager) RepairsPath() string   { return filepath.Join(m.Dir, repairsFile) }
 func (m *Manager) ComposePath() string   { return filepath.Join(m.Dir, "docker-compose.yml") }
+
+// SafetyAuditPath is the Repair Safety Engine decision trail (safety.json).
+func (m *Manager) SafetyAuditPath() string { return filepath.Join(m.Dir, safetyAuditFile) }
+
+// BreakerPath is the persisted repair circuit breaker state (breaker.json).
+func (m *Manager) BreakerPath() string { return filepath.Join(m.Dir, breakerFile) }
+
+// ApprovalsPath is the judge approval store (approvals.json).
+func (m *Manager) ApprovalsPath() string { return filepath.Join(m.Dir, approvalsFile) }
 
 // SaveLock writes the lock atomically.
 func (m *Manager) SaveLock(l *domain.Lock) error {

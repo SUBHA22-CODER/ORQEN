@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/soham1105-tech/orqen/internal/dashboard"
+	"github.com/SUBHA22-CODER/ORQEN/internal/dashboard"
 )
 
 var dashCmd = &cobra.Command{

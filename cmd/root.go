@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/soham1105-tech/orqen/internal/config"
-	"github.com/soham1105-tech/orqen/internal/ui"
+	"github.com/SUBHA22-CODER/ORQEN/internal/config"
+	"github.com/SUBHA22-CODER/ORQEN/internal/ui"
 )
 
 // Version and BuildTime are injected via -ldflags.

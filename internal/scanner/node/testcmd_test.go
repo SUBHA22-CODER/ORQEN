@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
 )
 
 func pkg(t *testing.T, raw string) *PackageJSON {

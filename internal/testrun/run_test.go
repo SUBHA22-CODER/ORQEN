@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
 )
 
 // fakeExecer records what Run sent to the container and replays a canned

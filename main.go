@@ -1,6 +1,6 @@
 package main
 
-import "github.com/soham1105-tech/orqen/cmd"
+import "github.com/SUBHA22-CODER/ORQEN/cmd"
 
 func main() {
 	cmd.Execute()

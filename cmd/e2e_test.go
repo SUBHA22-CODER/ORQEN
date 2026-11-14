@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/state"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/state"
 )
 
 func writeFixture(t *testing.T, root, rel, content string) {

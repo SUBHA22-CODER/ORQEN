@@ -1,0 +1,171 @@
+/* ORQEN judge approval panel styles. */
+
+.approvals-card {
+  width: min(920px, 94vw);
+  max-height: 88vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.approvals-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.approvals-head h2 { margin: 0; font-size: 18px; }
+
+.approvals-demo {
+  border: 1px dashed rgba(127, 127, 127, 0.5);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.approvals-demo-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+
+.approvals-demo-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.approvals-demo-btns button {
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(127, 127, 127, 0.5);
+  background: transparent;
+  cursor: pointer;
+}
+
+.approvals-demo-btns button:hover { background: rgba(127, 127, 127, 0.12); }
+
+.approvals-demo-result { font-size: 12px; opacity: 0.85; min-height: 1em; }
+
+.approvals-filter { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.approvals-body {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(0, 1.6fr);
+  gap: 12px;
+  min-height: 240px;
+}
+
+.approvals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 56vh;
+  overflow: auto;
+}
+
+.approvals-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(127, 127, 127, 0.5);
+  background: transparent;
+  cursor: pointer;
+}
+
+.approvals-row.active { border-color: currentColor; }
+
+.approvals-row-title { font-weight: 600; }
+
+.approvals-row-meta { font-size: 11px; opacity: 0.7; }
+
+.approvals-empty { opacity: 0.6; font-size: 13px; padding: 8px; }
+
+.approvals-detail { max-height: 56vh; overflow: auto; font-size: 13px; }
+
+.approvals-detail h3 { margin: 0 0 8px; font-size: 15px; }
+
+.approvals-detail h4 {
+  margin: 12px 0 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+
+.approvals-detail p { margin: 0 0 6px; white-space: pre-wrap; }
+
+.approvals-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+
+.approvals-meta div { display: flex; gap: 6px; }
+
+.approvals-meta .k { opacity: 0.6; min-width: 92px; }
+
+.approvals-meta .risk { font-weight: 700; }
+
+.approvals-meta .warn { color: #b45309; }
+
+.approvals-evidence { margin: 0; padding-left: 18px; }
+
+.approvals-evidence li { font-family: ui-monospace, monospace; font-size: 12px; }
+
+.approvals-diff {
+  background: rgba(127, 127, 127, 0.08);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  overflow: auto;
+  max-height: 200px;
+  white-space: pre-wrap;
+}
+
+.approvals-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+.approvals-actions .primary {
+  background: #16a34a;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.approvals-actions .danger {
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.approvals-note { font-size: 11px; opacity: 0.65; margin-top: 8px; }
+
+.mono { font-family: ui-monospace, monospace; }
+
+.chip-active { border-color: currentColor; }
+
+.approvals-status {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.s-pending { color: #d97706; }
+.s-approved { color: #16a34a; }
+.s-rejected { color: #dc2626; }
+.s-executing { color: #2563eb; }
+.s-executed { color: #16a34a; }
+.s-failed { color: #dc2626; }
+.s-expired { color: #71717a; }
+.s-cancelled { color: #71717a; }

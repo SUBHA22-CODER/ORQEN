@@ -2,8 +2,8 @@
 # ORQEN installer — builds from source with the local Go toolchain.
 set -eu
 
-MODULE="github.com/soham1105-tech/orqen"
-REPO="https://github.com/soham1105-tech/orqen.git"
+MODULE="github.com/SUBHA22-CODER/ORQEN"
+REPO="https://github.com/SUBHA22-CODER/ORQEN.git"
 BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
 VERSION="${VERSION:-v0.4.0}"
 

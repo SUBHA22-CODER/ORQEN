@@ -7,12 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/healer"
-	"github.com/soham1105-tech/orqen/internal/llm"
-	"github.com/soham1105-tech/orqen/internal/portprobe"
-	"github.com/soham1105-tech/orqen/internal/safefs"
-	"github.com/soham1105-tech/orqen/internal/tunnel"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/healer"
+	"github.com/SUBHA22-CODER/ORQEN/internal/llm"
+	"github.com/SUBHA22-CODER/ORQEN/internal/portprobe"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safefs"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safety"
+	"github.com/SUBHA22-CODER/ORQEN/internal/tunnel"
 )
 
 // State is the agent's coarse lifecycle state.
@@ -97,6 +98,12 @@ type Options struct {
 	WorkDir   string
 	Env       EnvAccess
 	Onboard   OnboardFunc
+	// Approvals is the judge approval backend backing natural-language
+	// approval intents. Nil disables the flow (the agent points at the CLI).
+	Approvals *safety.ApprovalStore
+	// Judge is the authenticated identity of the chat operator. Authorization
+	// is verified in code (VerifyAuthorization); the LLM plays no part.
+	Judge safety.JudgeIdentity
 }
 
 // Result is the outcome of a run.

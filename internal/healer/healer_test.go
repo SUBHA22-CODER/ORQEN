@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/safefs"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safefs"
 )
 
 var errBuild = errors.New("build failed")
@@ -356,7 +356,7 @@ func TestApplyPlanNormalizesGenericDockerfileName(t *testing.T) {
 	}
 	h := &Healer{WorkJail: jail, Provenance: NewProvenance(""), Services: []*domain.Service{{Name: "api"}}}
 	plan := &RepairPlan{Changes: []Change{{Operation: "replace_exact", File: "Dockerfile", Anchor: "RUN npm ci", Content: "RUN npm install"}}}
-	applied, _, err := h.applyPlan("Dockerfile.api", plan, Failure{})
+	applied, _, err := h.applyPlan(context.Background(), "Dockerfile.api", plan, Failure{}, nil)
 	if err != nil || !applied {
 		t.Fatalf("applied=%v err=%v", applied, err)
 	}
@@ -402,7 +402,7 @@ func TestLLMRepairRetriesAfterValidationFeedback(t *testing.T) {
 		Services: []*domain.Service{{Name: "api"}},
 	}
 	applied, summary, err := h.llmRepair(context.Background(), "api", "Dockerfile.api",
-		Failure{Category: CatDockerBuild, Error: "boom"}, "boom", false)
+		Failure{Category: CatDockerBuild, Error: "boom"}, "boom", false, nil)
 	if err != nil || !applied {
 		t.Fatalf("applied=%v err=%v summary=%q", applied, err, summary)
 	}

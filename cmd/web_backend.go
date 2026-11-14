@@ -3,19 +3,65 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+
 	"strings"
 
-	"github.com/soham1105-tech/orqen/internal/agent"
-	"github.com/soham1105-tech/orqen/internal/config"
-	"github.com/soham1105-tech/orqen/internal/docker"
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/state"
-	"github.com/soham1105-tech/orqen/internal/web"
+	"github.com/SUBHA22-CODER/ORQEN/internal/agent"
+	"github.com/SUBHA22-CODER/ORQEN/internal/config"
+	"github.com/SUBHA22-CODER/ORQEN/internal/docker"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safety"
+	"github.com/SUBHA22-CODER/ORQEN/internal/state"
+	"github.com/SUBHA22-CODER/ORQEN/internal/web"
 )
 
 type localWebBackend struct {
 	client domain.LLMClient
+}
+
+// approvalStore returns the process-wide store instance. The healer's
+// approval coordinator and the expiry sweeper share this single instance so
+// judge decisions made here unblock paused repair pipelines.
+func (b *localWebBackend) approvalStore() *safety.ApprovalStore {
+	return sharedApprovalStore()
+}
+
+func (b *localWebBackend) ListApprovals(projectID string) ([]safety.Approval, error) {
+	store := b.approvalStore()
+	var out []safety.Approval
+	for _, a := range store.List("", projectID) {
+		if a != nil {
+			out = append(out, *a)
+		}
+	}
+	return out, nil
+}
+
+func (b *localWebBackend) GetApproval(approvalID string) (*safety.Approval, error) {
+	store := b.approvalStore()
+	a, ok := store.Get(approvalID)
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return a, nil
+}
+
+func (b *localWebBackend) DecideApproval(decision safety.ApprovalDecision) (*safety.Approval, error) {
+	store := b.approvalStore()
+	return store.Decide(decision)
+}
+
+func (b *localWebBackend) SubscribeApprovals(buffer int) (<-chan safety.ApprovalEvent, func()) {
+	store := b.approvalStore()
+	return store.Subscribe(buffer)
+}
+
+// TriggerApprovalDemo implements web.Backend: runs one simulated event
+// through the real gate pipeline against an isolated temp fixture.
+func (b *localWebBackend) TriggerApprovalDemo(event string) (map[string]any, error) {
+	return runApprovalDemo(event)
 }
 
 func (b *localWebBackend) Projects(ctx context.Context) ([]web.ProjectView, error) {

@@ -10,16 +10,16 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/soham1105-tech/orqen/internal/docker"
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/envvar"
-	"github.com/soham1105-tech/orqen/internal/generator"
-	"github.com/soham1105-tech/orqen/internal/infra"
-	"github.com/soham1105-tech/orqen/internal/portprobe"
-	"github.com/soham1105-tech/orqen/internal/reconciler"
-	"github.com/soham1105-tech/orqen/internal/scanner"
-	"github.com/soham1105-tech/orqen/internal/state"
-	"github.com/soham1105-tech/orqen/internal/ui"
+	"github.com/SUBHA22-CODER/ORQEN/internal/docker"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/envvar"
+	"github.com/SUBHA22-CODER/ORQEN/internal/generator"
+	"github.com/SUBHA22-CODER/ORQEN/internal/infra"
+	"github.com/SUBHA22-CODER/ORQEN/internal/portprobe"
+	"github.com/SUBHA22-CODER/ORQEN/internal/reconciler"
+	"github.com/SUBHA22-CODER/ORQEN/internal/scanner"
+	"github.com/SUBHA22-CODER/ORQEN/internal/state"
+	"github.com/SUBHA22-CODER/ORQEN/internal/ui"
 )
 
 var (

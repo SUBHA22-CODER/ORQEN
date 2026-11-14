@@ -1,30 +1,47 @@
-# Security
+# Security Policy
 
-## Secrets
-- `.env`, `.env.*`, and the `orqen` binary are gitignored; only `.env.example`
-  is committed.
-- ORQEN writes project env files with `0600` permissions and refuses
-  group/other-writable files.
-- Credential-bearing URLs (e.g. `postgres://user:pass@host`) are masked in
-  `orqen env`.
-- Git tokens are passed through `GIT_CONFIG_*` environment variables, never
-  argv, and are scrubbed from errors.
+## Supported Versions
 
-## Filesystem boundary
-- All agent file reads and writes go through `safefs.Jail`, which resolves
-  symlinks on the longest existing prefix, rejects `..` and absolute escapes,
-  and caps reads.
-- The healer may only modify generated `Dockerfile.*`, `docker-compose.yml`,
-  and `.dockerignore` inside the project workspace.
-- `nuke` only removes paths inside ORQEN-owned roots and refuses `/`, `.`, and
-  the home directory.
+| Version | Supported          |
+| ------- | ------------------ |
+| 0.4.x   | :white_check_mark: |
+| < 0.4.0 | :x:                |
 
-## Repair invariants
-LLM patches are rejected when they would disable type checking, remove a
-healthcheck, replace a command with `sleep`, drop install/build steps, use
-absolute compose paths, or rewrite beyond a bounded scope. Applied patches are
-recorded with before/after SHA-256 in `repairs.json`.
+## Responsible Vulnerability Disclosure
 
-## Reporting
-Open a private security advisory at
-https://github.com/soham1105-tech/orqen/security/advisories/new.
+Security and deterministic safety are core design principles of ORQEN. If you discover a security vulnerability, we appreciate your help in disclosing it responsibly.
+
+**Please do NOT open a public GitHub issue for security vulnerabilities.**
+
+Instead, report security issues directly to the author and maintainer:
+- **Maintainer:** Subha Prasana Parida
+- **GitHub:** [@SUBHA22-CODER](https://github.com/SUBHA22-CODER)
+- **Security Contact:** Open a private security advisory on GitHub at [https://github.com/SUBHA22-CODER/ORQEN/security/advisories/new](https://github.com/SUBHA22-CODER/ORQEN/security/advisories/new).
+
+Please include:
+1. Description of the vulnerability and affected component.
+2. Step-by-step reproduction instructions or proof-of-concept.
+3. Potential impact and attack vectors.
+
+You will receive an acknowledgment within 48 hours, followed by regular updates until a patch is released.
+
+## Secret and Credential Management
+
+1. **API Keys & Tokens**:
+   - `GEMINI_API_KEY` and `XAI_API_KEY` are used exclusively for LLM provider communication.
+   - Keys are kept in memory and never written to configuration files, logs, or UI outputs.
+   - Sensitive keys are automatically masked (`[REDACTED]`) in error messages and API responses.
+2. **GitHub Personal Access Tokens (`GITHUB_PAT`)**:
+   - Required only for private repository cloning.
+   - Never injected into user application containers or committed to state.
+3. **Environment Isolation**:
+   - Secrets defined in `.env` are strictly excluded from version control via `.gitignore`.
+   - Never commit `.env` or production credentials.
+
+## Autonomous Repair Safety Controls
+
+ORQEN implements hard bounds on automated actions:
+- **Independent Safety Triad**: Diagnostic confidence, repair risk, and evidence sufficiency are measured independently by deterministic algorithms.
+- **Circuit Breaker**: Halts automated repair attempts after 3 consecutive failures to avoid thrashing.
+- **Judge Authorization**: High-risk changes (volume deletions, network reconfigurations, multi-file patches) strictly require signed judge approval with action-hash binding and replay protection.
+- **Dry-run Capabilities**: Diagnostic assessment can always be executed in read-only mode (`--dry-run`).

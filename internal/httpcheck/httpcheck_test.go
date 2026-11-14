@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
 )
 
 func TestCheckHealthyBelow500(t *testing.T) {

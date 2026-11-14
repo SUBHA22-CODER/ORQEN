@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/soham1105-tech/orqen/internal/config"
-	"github.com/soham1105-tech/orqen/internal/ui"
+	"github.com/SUBHA22-CODER/ORQEN/internal/config"
+	"github.com/SUBHA22-CODER/ORQEN/internal/ui"
 )
 
 var configCmd = &cobra.Command{
@@ -105,7 +105,7 @@ func showConfig() error {
 	logf("%s", ui.Table([]string{"Setting", "Value"}, rows, "configuration"))
 	if rerr != nil {
 		logf("%s", ui.WarningLine("LLM not configured: "+rerr.Error()))
-		logf("%s", ui.InfoLine("set a key with: orqen config set api-key <value>  (or export GEMINI_API_KEY)"))
+		logf("%s", ui.InfoLine("set a key with: orqen config set api-key <value>  (or export GEMINI_API_KEY / XAI_API_KEY)"))
 	}
 	return nil
 }

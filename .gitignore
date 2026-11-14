@@ -3,17 +3,32 @@
 .env.*
 !.env.example
 
-# Build artifacts
+# Build artifacts and binaries
 orqen
 orqen.exe
+*.exe
+*.exe~
+*~
+*.dll
+*.so
+*.dylib
 dist/
 bin/
 
-# Logs
+# Logs and runtime data
 *.log
+.orqen/
+
+# Test coverage and profiles
+*.out
+coverage.txt
+*.test
+*.prof
 
 # OS / editor cruft
 .DS_Store
+Thumbs.db
+desktop.ini
 *.swp
 *.swo
 .idea/
@@ -21,6 +36,4 @@ bin/
 
 # Local scratch
 /tmp/
-*.out
-coverage.txt
 qa-screenshots/

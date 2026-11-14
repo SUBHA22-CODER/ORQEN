@@ -10,15 +10,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/soham1105-tech/orqen/internal/config"
-	"github.com/soham1105-tech/orqen/internal/generator"
-	"github.com/soham1105-tech/orqen/internal/git"
-	"github.com/soham1105-tech/orqen/internal/graph"
-	"github.com/soham1105-tech/orqen/internal/httpcheck"
-	"github.com/soham1105-tech/orqen/internal/infra"
-	"github.com/soham1105-tech/orqen/internal/portprobe"
-	"github.com/soham1105-tech/orqen/internal/scanner"
-	"github.com/soham1105-tech/orqen/internal/tunnel"
+	"github.com/SUBHA22-CODER/ORQEN/internal/config"
+	"github.com/SUBHA22-CODER/ORQEN/internal/generator"
+	"github.com/SUBHA22-CODER/ORQEN/internal/git"
+	"github.com/SUBHA22-CODER/ORQEN/internal/graph"
+	"github.com/SUBHA22-CODER/ORQEN/internal/httpcheck"
+	"github.com/SUBHA22-CODER/ORQEN/internal/infra"
+	"github.com/SUBHA22-CODER/ORQEN/internal/portprobe"
+	"github.com/SUBHA22-CODER/ORQEN/internal/scanner"
+	"github.com/SUBHA22-CODER/ORQEN/internal/tunnel"
 )
 
 func objectSchema(props map[string]any, required ...string) map[string]any {

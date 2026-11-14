@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/soham1105-tech/orqen/internal/agent"
-	"github.com/soham1105-tech/orqen/internal/safefs"
+	"github.com/SUBHA22-CODER/ORQEN/internal/agent"
+	"github.com/SUBHA22-CODER/ORQEN/internal/safefs"
 )
 
 // ChatStore persists conversations under a directory as 0600 JSON.

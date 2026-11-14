@@ -11,9 +11,9 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/soham1105-tech/orqen/internal/config"
-	"github.com/soham1105-tech/orqen/internal/llm"
-	"github.com/soham1105-tech/orqen/internal/ui"
+	"github.com/SUBHA22-CODER/ORQEN/internal/config"
+	"github.com/SUBHA22-CODER/ORQEN/internal/llm"
+	"github.com/SUBHA22-CODER/ORQEN/internal/ui"
 )
 
 var setupCmd = &cobra.Command{
@@ -38,7 +38,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	logf("%s", ui.MutedStyle.Render("Configure the agent, then verify it live."))
 	logf("")
 	logf("%s", ui.Section("LLM provider"))
-	logf("  1) gemini   2) openai   3) anthropic   4) groq   5) ollama")
+	logf("  1) gemini   2) grok")
 
 	provider := config.NormalizeProvider(firstNonEmptyStr(cfg.LLMProvider, "gemini"))
 	choice := readLine(reader, fmt.Sprintf("Provider [%s]", provider), "")
@@ -131,13 +131,15 @@ func providerFromChoice(choice, fallback string) string {
 	switch strings.ToLower(strings.TrimSpace(choice)) {
 	case "1", "gemini", "google":
 		return "gemini"
-	case "2", "openai":
+	case "2", "grok", "xai", "x-ai":
+		return "grok"
+	case "openai":
 		return "openai"
-	case "3", "anthropic", "claude":
+	case "anthropic", "claude":
 		return "anthropic"
-	case "4", "groq":
+	case "groq":
 		return "groq"
-	case "5", "ollama", "local":
+	case "ollama", "local":
 		return "ollama"
 	default:
 		return fallback

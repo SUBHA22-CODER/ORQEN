@@ -8,11 +8,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/soham1105-tech/orqen/internal/config"
-	"github.com/soham1105-tech/orqen/internal/ui"
+	"github.com/SUBHA22-CODER/ORQEN/internal/config"
+	"github.com/SUBHA22-CODER/ORQEN/internal/ui"
 )
 
-var configProviders = []string{"gemini", "openai", "anthropic", "groq", "ollama"}
+var configProviders = []string{"gemini", "grok"}
 
 const (
 	cfgFieldProvider = iota
@@ -92,6 +92,8 @@ func providerEnvKey(provider string) string {
 	switch config.NormalizeProvider(provider) {
 	case "gemini":
 		return "GEMINI_API_KEY"
+	case "grok":
+		return "XAI_API_KEY"
 	case "openai":
 		return "OPENAI_API_KEY"
 	case "anthropic":

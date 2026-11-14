@@ -204,17 +204,24 @@ type Project struct {
 	UpdatedAt     time.Time       `json:"updated_at"`
 }
 
-// Container is a parsed `docker compose ps` row.
+// Container is a parsed `docker compose ps` row with runtime inspection fields.
 type Container struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Service  string `json:"service"`
-	State    string `json:"state"`
-	Status   string `json:"status"`
-	Health   string `json:"health"`
-	Image    string `json:"image"`
-	Project  string `json:"project"`
-	ExitCode int    `json:"exit_code"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Service       string `json:"service"`
+	State         string `json:"state"`
+	Status        string `json:"status"`
+	Health        string `json:"health"`
+	Image         string `json:"image"`
+	Project       string `json:"project"`
+	ExitCode      int    `json:"exit_code"`
+	RestartCount  int    `json:"restart_count,omitempty"`
+	RestartPolicy string `json:"restart_policy,omitempty"`
+	OOMKilled     bool   `json:"oom_killed,omitempty"`
+	Error         string `json:"error,omitempty"`
+	Command       string `json:"command,omitempty"`
+	StartedAt     string `json:"started_at,omitempty"`
+	FinishedAt    string `json:"finished_at,omitempty"`
 }
 
 // ContainerStat is a parsed `docker stats` row.

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/soham1105-tech/orqen/internal/config"
-	"github.com/soham1105-tech/orqen/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/config"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
 )
 
 const (
@@ -69,9 +69,9 @@ func New(cfg Config) (*Client, error) {
 		return nil, domain.E(domain.KindConfig, "llm.New", "provider is empty", domain.ErrNotConfigured)
 	}
 	switch provider {
-	case "gemini", "openai", "anthropic", "groq", "ollama":
+	case "gemini", "grok", "openai", "anthropic", "groq", "ollama":
 	default:
-		return nil, domain.E(domain.KindConfig, "llm.New", "unsupported provider "+provider, nil)
+		return nil, domain.E(domain.KindConfig, "llm.New", "unsupported provider "+provider+": supported providers are gemini, grok", nil)
 	}
 	if strings.TrimSpace(cfg.Model) == "" {
 		cfg.Model = config.DefaultModel(provider)
@@ -90,6 +90,8 @@ func New(cfg Config) (*Client, error) {
 	base := strings.TrimSuffix(cfg.BaseURL, "/")
 	if base == "" {
 		switch provider {
+		case "grok":
+			base = "https://api.x.ai/v1"
 		case "openai":
 			base = "https://api.openai.com"
 		case "groq":
@@ -134,7 +136,7 @@ func (c *Client) Call(ctx context.Context, systemPrompt, userPrompt string) (str
 // CallTools performs a completion with optional native tools.
 func (c *Client) CallTools(ctx context.Context, systemPrompt, userPrompt string, tools []Tool) (*ToolResponse, error) {
 	switch c.provider {
-	case "openai", "groq":
+	case "openai", "groq", "grok":
 		return c.callOpenAI(ctx, systemPrompt, userPrompt, tools)
 	case "anthropic":
 		return c.callAnthropic(ctx, systemPrompt, userPrompt, tools)

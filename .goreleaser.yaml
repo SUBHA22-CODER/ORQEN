@@ -12,8 +12,8 @@ builds:
     goarch: [amd64, arm64]
     ldflags:
       - -s -w
-      - -X github.com/soham1105-tech/orqen/cmd.Version={{.Version}}
-      - -X github.com/soham1105-tech/orqen/cmd.BuildTime={{.Date}}
+      - -X github.com/SUBHA22-CODER/ORQEN/cmd.Version={{.Version}}
+      - -X github.com/SUBHA22-CODER/ORQEN/cmd.BuildTime={{.Date}}
 
 archives:
   - formats: [tar.gz]

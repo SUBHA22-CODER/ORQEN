@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/ui"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/ui"
 )
 
 var healTries int
@@ -53,6 +53,16 @@ func runHeal(cmd *cobra.Command, args []string) error {
 	h, err := healerFor(mgr, lock, client)
 	if err != nil {
 		return err
+	}
+	if h.Safety != nil {
+		// --yes keeps its existing meaning: auto-approve destructive actions.
+		// Otherwise, interactive sessions get a plain-language approval prompt;
+		// non-interactive runs refuse risky repairs.
+		if flagYes {
+			setApprovalMode(h.Safety, "auto")
+		} else {
+			setApprovalMode(h.Safety, "prompt")
+		}
 	}
 	h.MaxTries = healTries
 	res, herr := h.Heal(ctx, "", "")

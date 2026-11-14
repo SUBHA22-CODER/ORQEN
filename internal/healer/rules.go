@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/soham1105-tech/orqen/internal/envvar"
+	"github.com/SUBHA22-CODER/ORQEN/internal/envvar"
 )
 
 var (

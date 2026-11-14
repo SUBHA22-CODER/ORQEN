@@ -15,7 +15,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
 )
 
 var (

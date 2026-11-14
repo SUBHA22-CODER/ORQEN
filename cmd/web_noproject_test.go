@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/soham1105-tech/orqen/internal/agent"
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/state"
-	"github.com/soham1105-tech/orqen/internal/web"
+	"github.com/SUBHA22-CODER/ORQEN/internal/agent"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/state"
+	"github.com/SUBHA22-CODER/ORQEN/internal/web"
 )
 
 func seedNoProjectFixture(t *testing.T, names ...string) {

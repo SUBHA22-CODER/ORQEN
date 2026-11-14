@@ -12,9 +12,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/soham1105-tech/orqen/internal/config"
-	"github.com/soham1105-tech/orqen/internal/ui"
-	"github.com/soham1105-tech/orqen/internal/web"
+	"github.com/SUBHA22-CODER/ORQEN/internal/config"
+	"github.com/SUBHA22-CODER/ORQEN/internal/ui"
+	"github.com/SUBHA22-CODER/ORQEN/internal/web"
 )
 
 var (
@@ -50,6 +50,15 @@ func runServe(cmd *cobra.Command, args []string) error {
 	backend := &localWebBackend{client: client}
 	srv := web.New(backend, store)
 	srv.Version = Version
+
+	// Judge mode: while the control plane runs, risky repairs pause and wait
+	// for a structured approval from the judge dashboard instead of being
+	// refused. An expiry sweeper closes stale requests so paused pipelines
+	// unblock deterministically.
+	judgeApprovals = true
+	sweepStop := make(chan struct{})
+	defer close(sweepStop)
+	go expirySweeper(sweepStop)
 
 	addr := net.JoinHostPort(serveHost, fmt.Sprintf("%d", servePort))
 	httpServer := &http.Server{

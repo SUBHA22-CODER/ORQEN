@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
-	"github.com/soham1105-tech/orqen/internal/portprobe"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/portprobe"
 )
 
 // Reconcile mutates services with host ports, bind env, and start commands.

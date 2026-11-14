@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/soham1105-tech/orqen/internal/domain"
+	"github.com/SUBHA22-CODER/ORQEN/internal/domain"
 )
 
 // --- OpenAI / Groq (chat completions) --------------------------------------
@@ -43,7 +43,14 @@ func (c *Client) callOpenAI(ctx context.Context, system, user string, tools []To
 		req["tools"] = oaTools
 		req["tool_choice"] = "auto"
 	}
-	raw, err := c.post(ctx, c.baseURL+"/v1/chat/completions",
+	endpoint := c.baseURL
+	baseURL := strings.TrimRight(c.baseURL, "/")
+	if strings.HasSuffix(baseURL, "/v1") {
+		endpoint = baseURL + "/chat/completions"
+	} else {
+		endpoint = baseURL + "/v1/chat/completions"
+	}
+	raw, err := c.post(ctx, endpoint,
 		map[string]string{"Authorization": "Bearer " + c.apiKey}, req)
 	if err != nil {
 		return nil, err
