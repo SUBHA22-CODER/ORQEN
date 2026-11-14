@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monojitgoswami69/spool/internal/domain"
+	"github.com/soham1105-tech/orqen/internal/domain"
 )
 
 // Execer is the container-execution seam. *docker.Compose satisfies it in
@@ -66,8 +66,6 @@ func RunnerFor(command string) string {
 		return RunnerCargo
 	case strings.Contains(c, "go test"), strings.HasPrefix(c, "go "):
 		return RunnerGo
-	case strings.Contains(c, "cargo"):
-		return RunnerCargo
 	case strings.Contains(c, "jest"), strings.Contains(c, "vitest"),
 		strings.Contains(c, "mocha"), strings.Contains(c, "playwright"),
 		strings.Contains(c, "npm "), strings.Contains(c, "pnpm "),
